@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>百度网盘转存</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="brand-header">
+        <div class="brand-mark">
+          <img src="icons/icon48.png" alt="" width="28" height="28" />
+        </div>
+        <div class="brand-copy">
+          <h1>百度网盘转存</h1>
+          <p>把分享内容保存到你的网盘</p>
+        </div>
+      </header>
+
+      <nav class="page-tabs" role="tablist" aria-label="功能页">
+        <button id="transferTabButton" class="page-tab active" type="button" role="tab" aria-selected="true" aria-controls="transferPanel" tabindex="0">
+          转存
+        </button>
+        <button id="outputTabButton" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="outputPanel" tabindex="-1">
+          输出
+        </button>
+      </nav>
+
+      <section id="transferPanel" class="page-panel active" role="tabpanel" aria-labelledby="transferTabButton">
+        <section id="loginCard" class="status-card is-checking" aria-live="polite">
+          <div class="status-icon" aria-hidden="true">
+            <span class="status-dot"></span>
+          </div>
+          <div class="status-copy">
+            <strong id="loginTitle">正在检测登录…</strong>
+            <span id="loginDetail" hidden></span>
+          </div>
+          <button id="loginAction" class="text-button" type="button" hidden>打开登录</button>
+        </section>
+
+        <form id="transferForm" novalidate>
+          <section class="panel-card form-card">
+            <div class="form-heading">
+              <div>
+                <span class="section-kicker">新建任务</span>
+                <h2>转存分享内容</h2>
+              </div>
+              <span class="privacy-note">仅在本机处理</span>
+            </div>
+
+            <div class="field-group">
+              <div class="label-row">
+                <label for="shareInput">分享链接</label>
+                <button id="pasteButton" class="mini-button" type="button" title="读取剪贴板">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 5.5h6M9.5 3h5a1 1 0 0 1 1 1v2h-7V4a1 1 0 0 1 1-1Z" />
+                    <path d="M7 5H5.8A1.8 1.8 0 0 0 4 6.8v12.4A1.8 1.8 0 0 0 5.8 21h12.4a1.8 1.8 0 0 0 1.8-1.8V6.8A1.8 1.8 0 0 0 18.2 5H17" />
+                  </svg>
+                  粘贴
+                </button>
+              </div>
+              <textarea
+                id="shareInput"
+                rows="3"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="粘贴百度网盘分享链接"
+                required
+              ></textarea>
+              <div id="linkSummary" class="link-summary" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.5 12 2.2 2.2 4.8-5" /></svg>
+                <span id="linkSummaryText"></span>
+              </div>
+              <p id="inputError" class="field-error" role="alert" hidden></p>
+            </div>
+
+            <div class="two-fields">
+              <div class="field-group compact">
+                <label for="passwordInput">提取码</label>
+                <input
+                  id="passwordInput"
+                  type="text"
+                  inputmode="text"
+                  maxlength="4"
+                  autocomplete="off"
+                  placeholder="选填"
+                />
+              </div>
+              <div class="field-group compact target-field">
+                <label for="targetInput">保存目录</label>
+                <input id="targetInput" type="text" value="/我的资源" autocomplete="off" />
+              </div>
+            </div>
+
+            <button id="startButton" class="primary-button" type="submit">
+              <span class="button-label">开始转存</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" /></svg>
+            </button>
+          </section>
+        </form>
+      </section>
+
+      <section id="outputPanel" class="page-panel output-panel" role="tabpanel" aria-labelledby="outputTabButton" hidden>
+        <section id="progressCard" class="panel-card progress-card" aria-live="polite">
+          <div class="output-toolbar">
+            <div>
+              <span class="section-kicker">任务状态</span>
+              <strong>运行输出</strong>
+            </div>
+            <div class="output-actions">
+              <button id="stopButton" class="output-button danger" type="button" hidden>停止</button>
+              <button id="clearLogButton" class="output-button" type="button">清空</button>
+            </div>
+          </div>
+
+          <div id="outputEmpty" class="output-empty">
+            <span class="empty-symbol" aria-hidden="true"></span>
+            <strong>还没有转存记录</strong>
+            <span>开始任务后，进度会显示在这里</span>
+          </div>
+          <div id="progressContent" hidden>
+            <div class="progress-heading">
+              <strong id="stageText">正在准备…</strong>
+              <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <span id="progressBar"></span>
+            </div>
+
+            <div class="stat-grid">
+              <div class="stat-item"><strong id="statDiscovered">0</strong><span>已发现</span></div>
+              <div class="stat-item"><strong id="statBatches">0</strong><span>已处理</span></div>
+              <div class="stat-item"><strong id="statSkipped">0</strong><span>已跳过</span></div>
+            </div>
+
+            <div class="log-heading">处理记录</div>
+            <ol id="logList" class="log-list"></ol>
+          </div>
+        </section>
+
+        <section id="resultCard" class="result-card" aria-live="assertive" hidden>
+          <div class="result-symbol" aria-hidden="true"></div>
+          <div class="result-copy">
+            <strong id="resultTitle"></strong>
+            <span id="resultDetail"></span>
+          </div>
+          <button id="openPanButton" class="mini-button" type="button" hidden>打开网盘</button>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

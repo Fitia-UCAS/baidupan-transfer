@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "百度网盘转存",
+  "short_name": "网盘转存",
+  "version": "1.0.1",
+  "description": "批量转存百度网盘分享文件。",
+  "minimum_chrome_version": "114",
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "scripting",
+    "sidePanel",
+    "clipboardRead"
+  ],
+  "host_permissions": [
+    "https://pan.baidu.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "打开百度网盘智能转存",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://pan.baidu.com/*"
+      ],
+      "js": [
+        "content-bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
