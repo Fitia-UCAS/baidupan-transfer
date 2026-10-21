@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "百度网盘转存",
   "short_name": "网盘转存",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "批量转存百度网盘分享文件。",
   "minimum_chrome_version": "114",
   "permissions": [
@@ -10,8 +10,7 @@
     "storage",
     "tabs",
     "scripting",
-    "sidePanel",
-    "clipboardRead"
+    "sidePanel"
   ],
   "host_permissions": [
     "https://pan.baidu.com/*"

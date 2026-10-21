@@ -4,23 +4,14 @@ import { TransferCancelledError, TransferEngine } from "./lib/transfer-engine.js
 
 const ui = {
   form: document.querySelector("#transferForm"),
-  transferTabButton: document.querySelector("#transferTabButton"),
-  outputTabButton: document.querySelector("#outputTabButton"),
-  transferPanel: document.querySelector("#transferPanel"),
-  outputPanel: document.querySelector("#outputPanel"),
   shareInput: document.querySelector("#shareInput"),
   passwordInput: document.querySelector("#passwordInput"),
   targetInput: document.querySelector("#targetInput"),
-  pasteButton: document.querySelector("#pasteButton"),
   startButton: document.querySelector("#startButton"),
   stopButton: document.querySelector("#stopButton"),
   inputError: document.querySelector("#inputError"),
   linkSummary: document.querySelector("#linkSummary"),
   linkSummaryText: document.querySelector("#linkSummaryText"),
-  loginCard: document.querySelector("#loginCard"),
-  loginTitle: document.querySelector("#loginTitle"),
-  loginDetail: document.querySelector("#loginDetail"),
-  loginAction: document.querySelector("#loginAction"),
   progressCard: document.querySelector("#progressCard"),
   progressContent: document.querySelector("#progressContent"),
   outputEmpty: document.querySelector("#outputEmpty"),
@@ -42,8 +33,6 @@ const ui = {
 const state = {
   engine: null,
   running: false,
-  login: null,
-  loginActionMode: "open",
   parseTimer: 0,
   toastTimer: 0
 };
@@ -63,8 +52,7 @@ const api = new BaiduApi({
 bindEvents();
 initialize().catch((error) => {
   console.error("Unable to initialize side panel", error);
-  setLoginCard("error", "初始化失败", "请重新加载扩展后再试");
-  showToast(error?.message || "侧边栏初始化失败，请重新加载扩展。 ");
+  showToast(error?.message || "侧边栏初始化失败，请重新加载扩展。");
 });
 
 async function initialize() {
@@ -75,19 +63,12 @@ async function initialize() {
 
   await prefillFromActiveTab();
   updateLinkSummary();
-  await refreshLoginState();
 }
 
 function bindEvents() {
   ui.form.addEventListener("submit", startTransfer);
-  ui.transferTabButton.addEventListener("click", () => setPanel("transfer"));
-  ui.outputTabButton.addEventListener("click", () => setPanel("output"));
-  ui.transferTabButton.addEventListener("keydown", handleTabKeydown);
-  ui.outputTabButton.addEventListener("keydown", handleTabKeydown);
   ui.stopButton.addEventListener("click", stopTransfer);
-  ui.pasteButton.addEventListener("click", pasteFromClipboard);
-  ui.loginAction.addEventListener("click", handleLoginAction);
-  ui.clearLogButton.addEventListener("click", () => ui.logList.replaceChildren());
+  ui.clearLogButton.addEventListener("click", clearOutput);
   ui.openPanButton.addEventListener("click", () =>
     sendBackground({ type: "OPEN_BAIDU", url: "https://pan.baidu.com/disk/main" })
   );
@@ -107,14 +88,6 @@ function bindEvents() {
   });
 }
 
-function handleTabKeydown(event) {
-  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-  event.preventDefault();
-  const showOutput = event.key === "ArrowRight" || event.key === "End";
-  setPanel(showOutput ? "output" : "transfer");
-  (showOutput ? ui.outputTabButton : ui.transferTabButton).focus();
-}
-
 async function prefillFromActiveTab() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -129,69 +102,12 @@ async function prefillFromActiveTab() {
   }
 }
 
-async function refreshLoginState() {
-  setLoginCard("checking", "正在检测登录…", "");
-  ui.loginAction.hidden = true;
-
-  try {
-    const login = await api.checkLogin();
-    state.login = login;
-    if (login.loggedIn) {
-      setLoginCard("online", "已登录", login.name === "当前账号" ? "" : login.name || "");
-      state.loginActionMode = "refresh";
-      ui.loginAction.textContent = "刷新";
-      ui.loginAction.hidden = false;
-    } else {
-      setLoginCard("offline", "未登录", "请先登录百度网盘");
-      state.loginActionMode = "open";
-      ui.loginAction.textContent = "打开登录";
-      ui.loginAction.hidden = false;
-    }
-  } catch (error) {
-    state.login = { loggedIn: false, reason: error.message };
-    setLoginCard("offline", "未登录", "请先登录百度网盘");
-    state.loginActionMode = "open";
-    ui.loginAction.textContent = "打开登录";
-    ui.loginAction.hidden = false;
-  }
-}
-
-async function handleLoginAction() {
-  if (state.loginActionMode === "open") {
-    try {
-      await sendBackground({ type: "OPEN_BAIDU", url: "https://pan.baidu.com/disk/main" });
-      state.loginActionMode = "refresh";
-      ui.loginAction.textContent = "重新检测";
-      showToast("请在新标签页完成登录，然后回来点击“重新检测”。");
-    } catch (error) {
-      showToast(error.message);
-    }
-    return;
-  }
-  await refreshLoginState();
-}
-
-async function pasteFromClipboard() {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (!text.trim()) {
-      showToast("剪贴板里没有文字。 ");
-      return;
-    }
-    ui.shareInput.value = text.trim();
-    updateLinkSummary({ copyPassword: true });
-    ui.shareInput.focus();
-  } catch {
-    showToast("无法读取剪贴板，请直接粘贴。 ");
-  }
-}
-
 function scheduleLinkSummary() {
   clearTimeout(state.parseTimer);
   state.parseTimer = setTimeout(() => updateLinkSummary(), 180);
 }
 
-function updateLinkSummary(options = {}) {
+function updateLinkSummary() {
   clearInputError();
   const value = ui.shareInput.value.trim();
   if (!value) {
@@ -201,9 +117,6 @@ function updateLinkSummary(options = {}) {
 
   try {
     const parsed = parseShareInput(value, ui.passwordInput.value);
-    if (options.copyPassword && parsed.password && !ui.passwordInput.value) {
-      ui.passwordInput.value = parsed.password;
-    }
     const notes = ["链接已识别"];
     if (parsed.password) notes.push("提取码已识别");
     ui.linkSummaryText.textContent = notes.join(" · ");
@@ -236,7 +149,6 @@ async function startTransfer(event) {
   await chrome.storage.local.set({ targetPath });
   resetTaskPresentation();
   setRunning(true);
-  setPanel("output");
 
   const engine = new TransferEngine({ api, onEvent: handleEngineEvent });
   state.engine = engine;
@@ -260,7 +172,6 @@ async function startTransfer(event) {
     } else {
       showResult("warning", "分享目录为空", "没有发现可转存的文件或文件夹。", false);
     }
-    await refreshLoginState();
   } catch (error) {
     handleTransferError(error, share);
   } finally {
@@ -273,7 +184,7 @@ function stopTransfer() {
   if (!state.engine) return;
   state.engine.cancel();
   ui.stopButton.disabled = true;
-  appendLog("warning", "正在停止；当前已经发出的百度请求会先结束。 ");
+  appendLog("warning", "正在停止；当前已经发出的百度请求会先结束。");
 }
 
 function handleEngineEvent(event) {
@@ -299,18 +210,11 @@ function handleTransferError(error, share) {
     return;
   }
 
-  if (error?.loginRequired || error?.code === "LOGIN_REQUIRED") {
-    setLoginCard("offline", "登录已失效", "请重新登录百度网盘");
-    state.loginActionMode = "open";
-    ui.loginAction.textContent = "打开登录";
-    ui.loginAction.hidden = false;
-  }
-
   if (!share.password && [-9, -12, 13003].includes(Number(error?.errno))) {
     message = "该分享可能需要提取码。请填写 4 位提取码后重试；若仍失败，链接可能已失效。";
-    setPanel("transfer");
     showInputError(message);
     ui.passwordInput.focus();
+    ui.passwordInput.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   appendLog("error", message);
@@ -327,13 +231,21 @@ function resetTaskPresentation() {
   setProgress("正在准备…", 0);
 }
 
+function clearOutput() {
+  ui.logList.replaceChildren();
+  ui.resultCard.hidden = true;
+  if (!state.running) {
+    ui.progressContent.hidden = true;
+    ui.outputEmpty.hidden = false;
+  }
+}
+
 function setRunning(running) {
   state.running = running;
   ui.startButton.disabled = running;
   ui.shareInput.disabled = running;
   ui.passwordInput.disabled = running;
   ui.targetInput.disabled = running;
-  ui.pasteButton.disabled = running;
   ui.stopButton.hidden = !running;
   ui.stopButton.disabled = false;
   ui.startButton.querySelector(".button-label").textContent = running ? "正在处理…" : "开始转存";
@@ -387,27 +299,6 @@ function buildCompletionDetail(stats) {
   return `${pieces.join("，")}。`;
 }
 
-function setLoginCard(status, title, detail) {
-  ui.loginCard.className = `status-card is-${status}`;
-  ui.loginTitle.textContent = title;
-  ui.loginDetail.textContent = detail || "";
-  ui.loginDetail.hidden = !detail;
-}
-
-function setPanel(name) {
-  const output = name === "output";
-  ui.transferPanel.hidden = output;
-  ui.outputPanel.hidden = !output;
-  ui.transferPanel.classList.toggle("active", !output);
-  ui.outputPanel.classList.toggle("active", output);
-  ui.transferTabButton.classList.toggle("active", !output);
-  ui.outputTabButton.classList.toggle("active", output);
-  ui.transferTabButton.setAttribute("aria-selected", String(!output));
-  ui.outputTabButton.setAttribute("aria-selected", String(output));
-  ui.transferTabButton.tabIndex = output ? -1 : 0;
-  ui.outputTabButton.tabIndex = output ? 0 : -1;
-}
-
 function showInputError(message) {
   ui.inputError.textContent = message;
   ui.inputError.hidden = false;
@@ -433,7 +324,7 @@ async function sendBackground(message) {
     ...message
   });
   if (!response?.ok) {
-    const error = new Error(response?.error || "扩展后台没有响应。请在 edge://extensions 中重新加载扩展。 ");
+    const error = new Error(response?.error || "扩展后台没有响应。请在 edge://extensions 中重新加载扩展。");
     error.code = response?.code || "BACKGROUND_ERROR";
     throw error;
   }
